@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#142a3b">
+  <title>Composite Cantilever Designer</title>
+  <style>
+    :root {
+      --ink: #172733;
+      --muted: #60717e;
+      --line: #d6dee3;
+      --paper: #ffffff;
+      --canvas: #fbfcfd;
+      --navy: #142a3b;
+      --navy-2: #223f53;
+      --accent: #e39b32;
+      --accent-soft: #fff4df;
+      --ok: #22835f;
+      --warn: #b96b16;
+      --bad: #bf3d3d;
+      --top: #246ba6;
+      --strut: #d07a21;
+      --brace1: #7356a8;
+      --reg: #138378;
+      --brace2: #bf4d53;
+      --assembly: #4b6170;
+      --shadow: 0 14px 34px rgba(20, 42, 59, .09);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      min-width: 1120px;
+      min-height: 100%;
+      margin: 0;
+      background: #edf1f4;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body { padding: 20px; }
+
+    button, input { font: inherit; }
+
+    button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+      outline: 3px solid rgba(227, 155, 50, .38);
+      outline-offset: 2px;
+    }
+
+    .app {
+      max-width: 1800px;
+      margin: 0 auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 16px;
+      padding: 2px 2px 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--warn);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(24px, 2vw, 34px);
+      line-height: 1.05;
+      letter-spacing: -.03em;
+    }
+
+    .subtitle {
+      max-width: 700px;
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mode-note {
+      flex: 0 0 auto;
+      padding: 9px 12px;
+      border: 1px solid #cad5dc;
+      border-radius: 999px;
+      background: rgba(255,255,255,.74);
+      color: #526775;
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .02em;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(470px, 1fr) minmax(470px, 1fr) 318px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .model-card, .settings-column {
+      border: 1px solid #d4dde2;
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .model-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #f9fbfc);
+    }
+
+    .model-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0;
+      color: var(--navy);
+      font-size: 15px;
+      letter-spacing: .01em;
+    }
+
+    .model-index {
+      display: inline-grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border-radius: 7px;
+      background: var(--navy);
+      color: white;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+
+    .head-actions { display: flex; gap: 6px; }
+
+    .button {
+      min-height: 31px;
+      padding: 6px 9px;
+      border: 1px solid #cbd6dc;
+      border-radius: 7px;
+      background: #fff;
+      color: #304a5c;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 750;
+      transition: border-color .15s, background .15s, transform .08s;
+    }
+
+    .button:hover { border-color: #9fb0bb; background: #f7fafb; }
+    .button:active { transform: translateY(1px); }
+    .button.primary { border-color: var(--navy-2); background: var(--navy-2); color: white; }
+    .button.primary:hover { background: var(--navy); }
+
+    .drawing-wrap {
+      position: relative;
+      background:
+        linear-gradient(90deg, rgba(20,42,59,.018) 1px, transparent 1px),
+        linear-gradient(rgba(20,42,59,.018) 1px, transparent 1px),
+        var(--canvas);
+      background-size: 20px 20px;
+    }
+
+    .drawing {
+      display: block;
+      width: 100%;
+      height: 470px;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .drawing .grid { stroke: #e9eef1; stroke-width: 1; }
+    .drawing .grid-major { stroke: #dfe7eb; stroke-width: 1; }
+    .drawing .reference { stroke: #80919c; stroke-width: 1.3; fill: none; }
+    .drawing .mast { stroke: #405663; stroke-width: 2; stroke-dasharray: 8 6; }
+    .drawing .track-centre { stroke: #6d7d87; stroke-width: 1.2; stroke-dasharray: 5 5; }
+    .drawing .stagger { stroke: #c0583f; stroke-width: 1.5; stroke-dasharray: 3 5; }
+    .drawing .target-level { stroke: #99a8b2; stroke-width: 1.1; stroke-dasharray: 6 5; }
+    .drawing .dimension { stroke: #71838e; stroke-width: 1; fill: none; }
+    .drawing .tube { stroke-width: 4; stroke-linecap: round; fill: none; }
+    .drawing .top { stroke: var(--top); }
+    .drawing .strut { stroke: var(--strut); }
+    .drawing .brace1 { stroke: var(--brace1); }
+    .drawing .reg { stroke: var(--reg); }
+    .drawing .brace2 { stroke: var(--brace2); }
+    .drawing .assembly { stroke: var(--assembly); stroke-width: 3.2; stroke-linecap: round; fill: none; }
+    .drawing .fixed-point { fill: #233d4e; stroke: white; stroke-width: 1.8; }
+    .drawing .handle {
+      fill: var(--accent);
+      stroke: #fff;
+      stroke-width: 2.5;
+      cursor: grab;
+      filter: drop-shadow(0 1px 1px rgba(20,42,59,.25));
+    }
+    .drawing .handle:hover { fill: #f0aa43; stroke-width: 3.2; }
+    .drawing .handle:active { cursor: grabbing; }
+    .drawing .end-handle { fill: #f6c463; }
+    .drawing .assembly-handle { fill: #415c6d; }
+    .drawing text {
+      fill: #526775;
+      font-size: 10px;
+      font-weight: 620;
+      pointer-events: none;
+    }
+    .drawing .tube-label { font-size: 10px; font-weight: 800; letter-spacing: .02em; }
+    .drawing .joint-label { fill: #934e0e; font-size: 9px; font-weight: 850; }
+    .drawing .small-label { font-size: 9px; font-weight: 620; }
+    .drawing .metric-bg { fill: rgba(255,255,255,.92); stroke: #d4dde2; stroke-width: 1; }
+    .drawing .metric-title { fill: #1e3748; font-size: 11px; font-weight: 820; }
+    .drawing .metric-ok { fill: var(--ok); }
+    .drawing .metric-warn { fill: var(--warn); }
+    .drawing .metric-bad { fill: var(--bad); }
+
+    .status {
+      min-height: 35px;
+      padding: 9px 14px;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #f8fafb;
+      color: #5c6f7b;
+      font-size: 11px;
+      line-height: 1.45;
+    }
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); background: #fffaf2; }
+    .status.bad { color: var(--bad); background: #fff7f7; }
+
+    .table-area { padding: 0 14px 14px; }
+
+    .tabs {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      position: relative;
+      padding: 11px 1px 9px;
+      border: 0;
+      background: transparent;
+      color: #6a7d89;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .tab.active { color: var(--navy); }
+    .tab.active::after {
+      position: absolute;
+      right: 0;
+      bottom: -1px;
+      left: 0;
+      height: 2px;
+      background: var(--accent);
+      content: "";
+    }
+
+    .value-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 11px;
+    }
+
+    .value-table th {
+      padding: 5px 6px;
+      color: #84939c;
+      font-size: 9px;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    .value-table td {
+      height: 34px;
+      padding: 4px 6px;
+      border-top: 1px solid #edf1f3;
+      vertical-align: middle;
+    }
+
+    .value-table tr:first-child td { border-top: 0; }
+    .value-table .name { width: 48%; color: #344c5c; font-weight: 690; }
+    .value-table .value { width: 32%; }
+    .value-table .unit { width: 9%; color: #788993; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .value-table .lock-cell { width: 11%; text-align: right; }
+
+    .value-input, .parameter-input {
+      width: 100%;
+      height: 27px;
+      padding: 4px 7px;
+      border: 1px solid #cfd9df;
+      border-radius: 5px;
+      background: #fff;
+      color: #1f3748;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .value-input:disabled, .parameter-input:disabled {
+      border-color: #e0e6ea;
+      background: #f2f5f6;
+      color: #83929a;
+    }
+
+    .lock-button {
+      display: inline-grid;
+      width: 28px;
+      height: 27px;
+      padding: 0;
+      place-items: center;
+      border: 1px solid #ccd7dd;
+      border-radius: 6px;
+      background: #fff;
+      color: #6b7d88;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .lock-button.locked {
+      border-color: #d79a42;
+      background: var(--accent-soft);
+      color: #9a5c0d;
+    }
+
+    .measured {
+      display: block;
+      margin-top: 2px;
+      color: var(--bad);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 8px;
+    }
+
+    .settings-column {
+      position: sticky;
+      top: 14px;
+      overflow: visible;
+    }
+
+    .settings-head {
+      padding: 15px 16px 13px;
+      border-bottom: 1px solid var(--line);
+      background: var(--navy);
+      color: white;
+    }
+
+    .settings-head h2 { margin: 0; font-size: 14px; }
+    .settings-head p { margin: 5px 0 0; color: #bbcad3; font-size: 10px; line-height: 1.4; }
+
+    .parameter-group {
+      padding: 13px 14px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .parameter-group:last-of-type { border-bottom: 0; }
+
+    .parameter-group h3 {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin: 0 0 9px;
+      color: var(--navy);
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .parameter-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .parameter-row {
+      display: grid;
+      grid-template-columns: 1fr 83px 27px;
+      gap: 6px;
+      align-items: center;
+      min-height: 35px;
+    }
+
+    .parameter-label {
+      color: #4d6371;
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .parameter-input-wrap { position: relative; }
+    .parameter-input { padding-right: 24px; text-align: right; }
+    .parameter-unit {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      color: #8a989f;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 9px;
+      pointer-events: none;
+    }
+
+    .fixed-note {
+      margin: 8px 0 2px;
+      padding: 7px 8px;
+      border-radius: 6px;
+      background: #f2f6f8;
+      color: #687c88;
+      font-size: 9px;
+      line-height: 1.45;
+    }
+
+    .legend {
+      padding: 13px 14px 15px;
+      background: #f8fafb;
+    }
+
+    .legend h3 {
+      margin: 0 0 8px;
+      color: var(--navy);
+      font-size: 11px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 8px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #5d717e;
+      font-size: 9px;
+    }
+
+    .legend-line {
+      width: 20px;
+      height: 3px;
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .engineering-note {
+      margin: 10px 0 0;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      color: #788a94;
+      font-size: 9px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1320px) {
+      html, body { min-width: 980px; }
+      body { padding: 12px; }
+      .workspace { grid-template-columns: 1fr 1fr; }
+      .settings-column {
+        position: static;
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+      .settings-head { grid-column: 1 / -1; }
+      .parameter-group { border-right: 1px solid var(--line); border-bottom: 0; }
+      .legend { padding-top: 13px; }
+    }
+
+    @media (max-width: 1000px) {
+      html, body { min-width: 0; }
+      body { padding: 8px; }
+      .topbar { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .workspace { grid-template-columns: 1fr; }
+      .settings-column { grid-column: auto; grid-template-columns: 1fr; }
+      .settings-head { grid-column: auto; }
+      .parameter-group { border-right: 0; border-bottom: 1px solid var(--line); }
+      .drawing { height: 430px; }
+      .mode-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">ICAGE geometry workspace</p>
+        <h1>Composite Cantilever Designer</h1>
+        <p class="subtitle">Drag the amber joints to test pull and push arrangements. Lock tube lengths or joint angles, then use the constraint solver to hold those values while the linkage moves.</p>
+      </div>
+      <div class="mode-note">Schematic geometry · dimensions in metres</div>
+    </header>
+
+    <main class="workspace">
+      <section class="model-card" id="pull-card" data-mode="pull">
+        <div class="model-head">
+          <h2 class="model-title"><span class="model-index">01</span> Pull configuration</h2>
+          <div class="head-actions">
+            <button class="button primary" data-action="solve" data-mode="pull">Auto-solve</button>
+            <button class="button" data-action="unlock-all" data-mode="pull">Unlock</button>
+            <button class="button" data-action="reset" data-mode="pull">Reset</button>
+          </div>
+        </div>
+        <div class="drawing-wrap">
+          <svg class="drawing" id="pull-svg" viewBox="0 0 680 480" role="img" aria-label="Interactive pull cantilever geometry"></svg>
+        </div>
+        <div class="status" id="pull-status" aria-live="polite"></div>
+        <div class="table-area">
+          <div class="tabs">
+            <button class="tab active" data-action="tab" data-mode="pull" data-tab="lengths">Tube lengths</button>
+            <button class="tab" data-action="tab" data-mode="pull" data-tab="angles">Joint angles</button>
+          </div>
+          <div id="pull-table"></div>
+        </div>
+      </section>
+
+      <section class="model-card" id="push-card" data-mode="push">
+        <div class="model-head">
+          <h2 class="model-title"><span class="model-index">02</span> Push configuration</h2>
+          <div class="head-actions">
+            <button class="button primary" data-action="solve" data-mode="push">Auto-solve</button>
+            <button class="button" data-action="unlock-all" data-mode="push">Unlock</button>
+            <button class="button" data-action="reset" data-mode="push">Reset</button>
+          </div>
+        </div>
+        <div class="drawing-wrap">
+          <svg class="drawing" id="push-svg" viewBox="0 0 680 480" role="img" aria-label="Interactive push cantilever geometry"></svg>
+        </div>
+        <div class="status" id="push-status" aria-live="polite"></div>
+        <div class="table-area">
+          <div class="tabs">
+            <button class="tab active" data-action="tab" data-mode="push" data-tab="lengths">Tube lengths</button>
+            <button class="tab" data-action="tab" data-mode="push" data-tab="angles">Joint angles</button>
+          </div>
+          <div id="push-table"></div>
+        </div>
+      </section>
+
+      <aside class="settings-column">
+        <div class="settings-head">
+          <h2>Reference inputs</h2>
+          <p>Pull and push values are independent. Unlock a field before editing it.</p>
+        </div>
+        <div class="parameter-group">
+          <h3><span class="parameter-dot"></span> Pull inputs</h3>
+          <div id="pull-parameters"></div>
+          <p class="fixed-note">Catenary clamp reference is fixed at 0.100 m above the level top tube.</p>
+        </div>
+        <div class="parameter-group">
+          <h3><span class="parameter-dot"></span> Push inputs</h3>
+          <div id="push-parameters"></div>
+          <p class="fixed-note">Catenary clamp reference is fixed at 0.100 m above the level top tube.</p>
+        </div>
+        <div class="legend">
+          <h3>Drawing key</h3>
+          <div class="legend-grid">
+            <div class="legend-item" style="color:var(--top)"><span class="legend-line"></span>Top tube</div>
+            <div class="legend-item" style="color:var(--strut)"><span class="legend-line"></span>Strut</div>
+            <div class="legend-item" style="color:var(--brace1)"><span class="legend-line"></span>Brace 1</div>
+            <div class="legend-item" style="color:var(--reg)"><span class="legend-line"></span>Reg tube</div>
+            <div class="legend-item" style="color:var(--brace2)"><span class="legend-line"></span>Brace 2</div>
+            <div class="legend-item" style="color:var(--assembly)"><span class="legend-line"></span>Reg assembly</div>
+          </div>
+          <p class="engineering-note"><strong>Constraint solver only.</strong> Auto-solve maintains the numeric locks shown here; it does not certify compliance with Network Rail, EN 50119, electrical clearance, loading, or product acceptance rules.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var TOP_Y = 3.0;
+  var CATENARY_OFFSET = 0.100;
+  var GAUGE = 1.435;
+  var STAGGER = 0.230;
+  var VECTOR_KEYS = ["topLength", "xC", "xE", "tD", "phi", "regLength", "tF", "tG", "tH"];
+  var STEPS = [0.001, 0.001, 0.001, 0.0005, 0.0005, 0.001, 0.0005, 0.0005, 0.0005];
+
+  var LENGTH_ROWS = [
+    { key: "top", label: "Top tube", unit: "m" },
+    { key: "strut", label: "Strut tube", unit: "m" },
+    { key: "brace1", label: "Brace tube 1", unit: "m" },
+    { key: "reg", label: "Registration tube", unit: "m" },
+    { key: "brace2", label: "Brace tube 2", unit: "m" },
+    { key: "drop", label: "Drop bracket", unit: "m", parameter: "drop" },
+    { key: "regArm", label: "Registration arm", unit: "m", parameter: "regArm" }
+  ];
+
+  var ANGLE_ROWS = [
+    { key: "topStrut", label: "J1 · Top–strut", unit: "°" },
+    { key: "topBrace1", label: "J2 · Top–brace 1", unit: "°" },
+    { key: "brace1Strut", label: "J3a · Brace 1–strut", unit: "°" },
+    { key: "strutReg", label: "J3b · Strut–registration", unit: "°" },
+    { key: "strutBrace2", label: "J4 · Strut–brace 2", unit: "°" },
+    { key: "regBrace2", label: "J5 · Registration–brace 2", unit: "°" },
+    { key: "topReg", label: "Registration vs top", unit: "°", signed: true }
+  ];
+
+  var PARAM_ROWS = [
+    { key: "systemHeight", label: "System height", unit: "m", min: 0.10, max: 3.00 },
+    { key: "walkout", label: "Walkout", unit: "m", min: 0.50, max: 8.00 },
+    { key: "regArm", label: "Reg arm length", unit: "m", min: 0.10, max: 3.00 },
+    { key: "drop", label: "Drop bracket", unit: "m", min: 0.05, max: 2.00 },
+    { key: "bracketSep", label: "Mast bracket separation", unit: "m", min: 0.10, max: 3.00 }
+  ];
+
+  function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function clamp(value, low, high) {
+    return Math.max(low, Math.min(high, value));
+  }
+
+  function point(x, y) {
+    return { x: x, y: y };
+  }
+
+  function add(a, b) {
+    return point(a.x + b.x, a.y + b.y);
+  }
+
+  function sub(a, b) {
+    return point(a.x - b.x, a.y - b.y);
+  }
+
+  function mul(a, scale) {
+    return point(a.x * scale, a.y * scale);
+  }
+
+  function lengthOf(a) {
+    return Math.hypot(a.x, a.y);
+  }
+
+  function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function dot(a, b) {
+    return a.x * b.x + a.y * b.y;
+  }
+
+  function angleBetween(a, b) {
+    var la = lengthOf(a);
+    var lb = lengthOf(b);
+    if (la < 1e-9 || lb < 1e-9) return 0;
+    return Math.acos(clamp(dot(a, b) / (la * lb), -1, 1));
+  }
+
+  function wrapAngle(value) {
+    while (value > Math.PI) value -= Math.PI * 2;
+    while (value < -Math.PI) value += Math.PI * 2;
+    return value;
+  }
+
+  function projectFraction(p, a, b) {
+    var ab = sub(b, a);
+    var denominator = dot(ab, ab);
+    if (denominator < 1e-12) return 0;
+    return clamp(dot(sub(p, a), ab) / denominator, 0, 1);
+  }
+
+  function midpoint(a, b) {
+    return point((a.x + b.x) / 2, (a.y + b.y) / 2);
+  }
+
+  function formatNumber(value, digits) {
+    if (!Number.isFinite(value)) return "—";
+    var threshold = Math.pow(10, -digits) / 2;
+    if (Math.abs(value) < threshold) value = 0;
+    return value.toFixed(digits);
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function defaultState(mode) {
+    return {
+      topLength: 4.75,
+      xC: mode === "pull" ? 3.35 : 3.15,
+      xE: 0.65,
+      tD: 0.31,
+      phi: 0,
+      regLength: mode === "pull" ? 3.00 : 4.20,
+      tF: 0.82,
+      tG: mode === "pull" ? 0.41 : 0.894,
+      tH: 0.78
+    };
+  }
+
+  function defaultParams() {
+    return {
+      systemHeight: 1.30,
+      walkout: 3.50,
+      regArm: 1.00,
+      drop: 0.30,
+      bracketSep: 1.30
+    };
+  }
+
+  function solveLinear(matrix, rhs) {
+    var n = rhs.length;
+    var a = new Array(n);
+    var b = rhs.slice();
+    var i;
+    var j;
+    var k;
+    for (i = 0; i < n; i += 1) a[i] = matrix[i].slice();
+
+    for (i = 0; i < n; i += 1) {
+      var pivot = i;
+      for (j = i + 1; j < n; j += 1) {
+        if (Math.abs(a[j][i]) > Math.abs(a[pivot][i])) pivot = j;
+      }
+      if (Math.abs(a[pivot][i]) < 1e-12) return new Array(n).fill(0);
+      if (pivot !== i) {
+        var tempRow = a[i];
+        a[i] = a[pivot];
+        a[pivot] = tempRow;
+        var tempValue = b[i];
+        b[i] = b[pivot];
+        b[pivot] = tempValue;
+      }
+      var diagonal = a[i][i];
+      for (j = i; j < n; j += 1) a[i][j] /= diagonal;
+      b[i] /= diagonal;
+      for (k = 0; k < n; k += 1) {
+        if (k === i) continue;
+        var factor = a[k][i];
+        if (Math.abs(factor) < 1e-14) continue;
+        for (j = i; j < n; j += 1) a[k][j] -= factor * a[i][j];
+        b[k] -= factor * b[i];
+      }
+    }
+    return b;
+  }
+
+  function vectorCost(values) {
+    var total = 0;
+    for (var i = 0; i < values.length; i += 1) total += values[i] * values[i];
+    return total;
+  }
+
+  function CantileverModel(mode) {
+    this.mode = mode;
+    this.state = defaultState(mode);
+    this.params = defaultParams();
+    this.lengthLocks = {};
+    this.angleLocks = {};
+    this.parameterLocks = {};
+    this.activeTab = "lengths";
+    this.status = {
+      className: "",
+      text: "Free geometry. Drag an amber joint or lock a value."
+    };
+  }
+
+  CantileverModel.prototype.reset = function () {
+    this.state = defaultState(this.mode);
+    this.params = defaultParams();
+    this.lengthLocks = {};
+    this.angleLocks = {};
+    this.parameterLocks = {};
+    this.status = {
+      className: "",
+      text: "Reset to the initial schematic geometry."
+    };
+  };
+
+  CantileverModel.prototype.toVector = function () {
+    var state = this.state;
+    return VECTOR_KEYS.map(function (key) { return state[key]; });
+  };
+
+  CantileverModel.prototype.vectorToState = function (vector) {
+    var state = {};
+    for (var i = 0; i < VECTOR_KEYS.length; i += 1) state[VECTOR_KEYS[i]] = vector[i];
+    return state;
+  };
+
+  CantileverModel.prototype.clipVector = function (vector) {
+    var v = vector.slice();
+    v[0] = clamp(v[0], 0.30, 8.00);
+    v[1] = clamp(v[1], 0.05, Math.max(0.05, v[0] - 0.02));
+    v[2] = clamp(v[2], 0.00, Math.max(0, v[0] - 0.02));
+    v[3] = clamp(v[3], 0.01, 0.99);
+    v[4] = clamp(wrapAngle(v[4]), -75 * Math.PI / 180, 75 * Math.PI / 180);
+    v[5] = clamp(v[5], 0.20, 8.00);
+    v[6] = clamp(v[6], 0.00, 1.00);
+    v[7] = clamp(v[7], 0.00, 1.00);
+    v[8] = clamp(v[8], 0.01, 0.99);
+    return v;
+  };
+
+  CantileverModel.prototype.derived = function (vector) {
+    var state = vector ? this.vectorToState(vector) : this.state;
+    var p = this.params;
+    var A = point(0, TOP_Y);
+    var B = point(0, TOP_Y - p.bracketSep);
+    var C = point(state.xC, TOP_Y);
+    var T = point(state.topLength, TOP_Y);
+    var E = point(state.xE, TOP_Y);
+    var D = add(B, mul(sub(C, B), state.tD));
+    var regDirection = point(Math.cos(state.phi), Math.sin(state.phi));
+    var R = add(D, mul(regDirection, state.regLength));
+    var F = add(D, mul(regDirection, state.regLength * state.tF));
+    var G = add(D, mul(regDirection, state.regLength * state.tG));
+    var H = this.mode === "push" ? C : add(B, mul(sub(C, B), state.tH));
+    var armDirection = this.mode === "pull" ? 1 : -1;
+    var dropBottom = point(G.x, G.y - p.drop);
+    var armEnd = point(dropBottom.x + armDirection * p.regArm, dropBottom.y);
+    var staggerX = p.walkout + (this.mode === "pull" ? -STAGGER : STAGGER);
+    var catenaryY = TOP_Y + CATENARY_OFFSET;
+    var contactY = catenaryY - p.systemHeight;
+    return {
+      A: A,
+      B: B,
+      C: C,
+      T: T,
+      E: E,
+      D: D,
+      R: R,
+      F: F,
+      G: G,
+      H: H,
+      dropBottom: dropBottom,
+      armEnd: armEnd,
+      staggerX: staggerX,
+      catenaryY: catenaryY,
+      contactY: contactY,
+      railLeft: p.walkout - GAUGE / 2,
+      railRight: p.walkout + GAUGE / 2
+    };
+  };
+
+  CantileverModel.prototype.lengthValue = function (key, vector) {
+    var d = this.derived(vector);
+    var state = vector ? this.vectorToState(vector) : this.state;
+    if (key === "top") return state.topLength;
+    if (key === "strut") return distance(d.B, d.C);
+    if (key === "brace1") return distance(d.E, d.D);
+    if (key === "reg") return state.regLength;
+    if (key === "brace2") return distance(d.H, d.F);
+    if (key === "drop") return this.params.drop;
+    if (key === "regArm") return this.params.regArm;
+    return 0;
+  };
+
+  CantileverModel.prototype.angleValue = function (key, vector) {
+    var d = this.derived(vector);
+    var state = vector ? this.vectorToState(vector) : this.state;
+    if (key === "topStrut") return angleBetween(sub(d.A, d.C), sub(d.B, d.C));
+    if (key === "topBrace1") return angleBetween(sub(d.T, d.E), sub(d.D, d.E));
+    if (key === "brace1Strut") return angleBetween(sub(d.E, d.D), sub(d.B, d.D));
+    if (key === "strutReg") return angleBetween(sub(d.C, d.D), sub(d.R, d.D));
+    if (key === "strutBrace2") {
+      var strutVector = this.mode === "push" ? sub(d.B, d.C) : sub(d.C, d.H);
+      return angleBetween(strutVector, sub(d.F, d.H));
+    }
+    if (key === "regBrace2") return angleBetween(sub(d.D, d.F), sub(d.H, d.F));
+    if (key === "topReg") return wrapAngle(state.phi);
+    return 0;
+  };
+
+  CantileverModel.prototype.lockCount = function () {
+    return Object.keys(this.lengthLocks).length + Object.keys(this.angleLocks).length;
+  };
+
+  CantileverModel.prototype.residualFunction = function (baseVector, extraConstraints, direct) {
+    var self = this;
+    var lengthKeys = Object.keys(this.lengthLocks);
+    var angleKeys = Object.keys(this.angleLocks);
+    var extras = extraConstraints || [];
+    return function (vector) {
+      var residuals = [];
+      var i;
+      for (i = 0; i < lengthKeys.length; i += 1) {
+        var lengthKey = lengthKeys[i];
+        residuals.push((self.lengthValue(lengthKey, vector) - self.lengthLocks[lengthKey]) * 250);
+      }
+      for (i = 0; i < angleKeys.length; i += 1) {
+        var angleKey = angleKeys[i];
+        var angleDifference = self.angleValue(angleKey, vector) - self.angleLocks[angleKey];
+        if (angleKey === "topReg") angleDifference = wrapAngle(angleDifference);
+        residuals.push(angleDifference * 140);
+      }
+      for (i = 0; i < extras.length; i += 1) {
+        var item = extras[i];
+        if (item.kind === "length") {
+          residuals.push((self.lengthValue(item.key, vector) - item.target) * 250);
+        } else if (item.kind === "angle") {
+          var difference = self.angleValue(item.key, vector) - item.target;
+          if (item.key === "topReg") difference = wrapAngle(difference);
+          residuals.push(difference * 140);
+        }
+      }
+      if (direct) {
+        if (direct.type === "variable") {
+          residuals.push((vector[direct.index] - direct.target) * (direct.weight || 55));
+        } else if (direct.type === "point") {
+          var derived = self.derived(vector);
+          var handlePoint = derived[direct.key];
+          residuals.push((handlePoint.x - direct.target.x) * (direct.weight || 55));
+          residuals.push((handlePoint.y - direct.target.y) * (direct.weight || 55));
+        }
+      }
+      var regularisation = [1, 1, 1, 1, 1, 1, 1, 1, 1];
+      for (i = 0; i < vector.length; i += 1) {
+        residuals.push((vector[i] - baseVector[i]) * regularisation[i] * 0.004);
+      }
+      return residuals;
+    };
+  };
+
+  CantileverModel.prototype.solve = function (options) {
+    options = options || {};
+    var baseVector = this.toVector();
+    var vector = baseVector.slice();
+    var residual = this.residualFunction(baseVector, options.extra, options.direct);
+    var damping = 0.003;
+    var iteration;
+
+    for (iteration = 0; iteration < 32; iteration += 1) {
+      var currentResidual = residual(vector);
+      var currentCost = vectorCost(currentResidual);
+      var rows = currentResidual.length;
+      var cols = vector.length;
+      var jacobian = new Array(rows);
+      var r;
+      var c;
+      for (r = 0; r < rows; r += 1) jacobian[r] = new Array(cols).fill(0);
+
+      for (c = 0; c < cols; c += 1) {
+        var shifted = vector.slice();
+        shifted[c] += STEPS[c];
+        shifted = this.clipVector(shifted);
+        var actualStep = shifted[c] - vector[c];
+        if (Math.abs(actualStep) < 1e-12) continue;
+        var shiftedResidual = residual(shifted);
+        for (r = 0; r < rows; r += 1) {
+          jacobian[r][c] = (shiftedResidual[r] - currentResidual[r]) / actualStep;
+        }
+      }
+
+      var normal = new Array(cols);
+      var rhs = new Array(cols).fill(0);
+      for (c = 0; c < cols; c += 1) normal[c] = new Array(cols).fill(0);
+      for (r = 0; r < rows; r += 1) {
+        for (c = 0; c < cols; c += 1) {
+          rhs[c] -= jacobian[r][c] * currentResidual[r];
+          for (var c2 = 0; c2 < cols; c2 += 1) {
+            normal[c][c2] += jacobian[r][c] * jacobian[r][c2];
+          }
+        }
+      }
+      for (c = 0; c < cols; c += 1) normal[c][c] += damping;
+      var delta = solveLinear(normal, rhs);
+      var accepted = false;
+      var alphas = [1, 0.5, 0.25, 0.1, 0.04];
+      for (var ai = 0; ai < alphas.length; ai += 1) {
+        var candidate = vector.map(function (value, index) {
+          return value + delta[index] * alphas[ai];
+        });
+        candidate = this.clipVector(candidate);
+        var candidateCost = vectorCost(residual(candidate));
+        if (candidateCost < currentCost - 1e-10) {
+          vector = candidate;
+          accepted = true;
+          damping = Math.max(1e-7, damping * 0.6);
+          break;
+        }
+      }
+      if (!accepted) {
+        damping *= 8;
+        if (damping > 1e8) break;
+      }
+      var largestStep = Math.max.apply(null, delta.map(Math.abs));
+      if (largestStep < 1e-8) break;
+    }
+
+    this.state = this.vectorToState(this.clipVector(vector));
+    this.updateStatus();
+    return this.state;
+  };
+
+  CantileverModel.prototype.updateStatus = function () {
+    var worstLength = 0;
+    var worstAngle = 0;
+    var lengthKey;
+    var angleKey;
+    for (lengthKey in this.lengthLocks) {
+      if (Object.prototype.hasOwnProperty.call(this.lengthLocks, lengthKey)) {
+        worstLength = Math.max(worstLength, Math.abs(this.lengthValue(lengthKey) - this.lengthLocks[lengthKey]));
+      }
+    }
+    for (angleKey in this.angleLocks) {
+      if (Object.prototype.hasOwnProperty.call(this.angleLocks, angleKey)) {
+        var difference = this.angleValue(angleKey) - this.angleLocks[angleKey];
+        if (angleKey === "topReg") difference = wrapAngle(difference);
+        worstAngle = Math.max(worstAngle, Math.abs(difference) * 180 / Math.PI);
+      }
+    }
+
+    if (this.lockCount() === 0) {
+      this.status = { className: "", text: "Free geometry. Drag an amber joint or lock a value." };
+    } else if (worstLength <= 0.0015 && worstAngle <= 0.12) {
+      this.status = {
+        className: "ok",
+        text: "Locked constraints solved · maximum error " + formatNumber(worstLength * 1000, 1) + " mm / " + formatNumber(worstAngle, 2) + "°."
+      };
+    } else if (worstLength <= 0.010 && worstAngle <= 0.8) {
+      this.status = {
+        className: "warn",
+        text: "Near solution · maximum locked error " + formatNumber(worstLength * 1000, 1) + " mm / " + formatNumber(worstAngle, 2) + "°."
+      };
+    } else {
+      this.status = {
+        className: "bad",
+        text: "Constraint conflict · current error " + formatNumber(worstLength * 1000, 1) + " mm / " + formatNumber(worstAngle, 2) + "°. Unlock a value or change its target."
+      };
+    }
+  };
+
+  CantileverModel.prototype.toggleLengthLock = function (key) {
+    if (Object.prototype.hasOwnProperty.call(this.lengthLocks, key)) {
+      delete this.lengthLocks[key];
+    } else {
+      this.lengthLocks[key] = this.lengthValue(key);
+    }
+    this.updateStatus();
+  };
+
+  CantileverModel.prototype.toggleAngleLock = function (key) {
+    if (Object.prototype.hasOwnProperty.call(this.angleLocks, key)) {
+      delete this.angleLocks[key];
+    } else {
+      this.angleLocks[key] = this.angleValue(key);
+    }
+    this.updateStatus();
+  };
+
+  CantileverModel.prototype.toggleParameterLock = function (key) {
+    if (this.parameterLocks[key]) delete this.parameterLocks[key];
+    else this.parameterLocks[key] = true;
+  };
+
+  CantileverModel.prototype.unlockAll = function () {
+    this.lengthLocks = {};
+    this.angleLocks = {};
+    this.parameterLocks = {};
+    this.status = { className: "", text: "All values unlocked." };
+  };
+
+  CantileverModel.prototype.setLength = function (key, value) {
+    if (!Number.isFinite(value) || value <= 0) {
+      this.status = { className: "bad", text: "Enter a positive tube length." };
+      return false;
+    }
+    if (key === "drop" || key === "regArm") {
+      var paramKey = key === "drop" ? "drop" : "regArm";
+      if (this.parameterLocks[paramKey]) {
+        this.status = { className: "warn", text: "Unlock " + (key === "drop" ? "drop bracket" : "registration arm") + " before editing." };
+        return false;
+      }
+      this.params[paramKey] = value;
+      this.solve();
+      return true;
+    }
+    if (key === "strut" && value <= this.params.bracketSep) {
+      this.status = {
+        className: "bad",
+        text: "Strut length must exceed the mast bracket separation of " + formatNumber(this.params.bracketSep, 3) + " m."
+      };
+      return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(this.lengthLocks, key)) this.lengthLocks[key] = value;
+    if (key === "top") this.state.topLength = value;
+    if (key === "reg") this.state.regLength = value;
+    this.state = this.vectorToState(this.clipVector(this.toVector()));
+    this.solve({ extra: [{ kind: "length", key: key, target: value }] });
+    return true;
+  };
+
+  CantileverModel.prototype.setAngle = function (key, degrees) {
+    if (!Number.isFinite(degrees)) {
+      this.status = { className: "bad", text: "Enter a valid joint angle." };
+      return false;
+    }
+    var target = degrees * Math.PI / 180;
+    if (key !== "topReg" && (degrees < 0 || degrees > 180)) {
+      this.status = { className: "bad", text: "Joint angles must be between 0° and 180°." };
+      return false;
+    }
+    if (key === "topReg" && Math.abs(degrees) > 75) {
+      this.status = { className: "bad", text: "Registration tube angle is limited to ±75° in this model." };
+      return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(this.angleLocks, key)) this.angleLocks[key] = target;
+    this.solve({ extra: [{ kind: "angle", key: key, target: target }] });
+    return true;
+  };
+
+  CantileverModel.prototype.setParameter = function (key, value) {
+    var definition = PARAM_ROWS.filter(function (row) { return row.key === key; })[0];
+    if (!definition || !Number.isFinite(value) || value < definition.min || value > definition.max) {
+      this.status = {
+        className: "bad",
+        text: definition ? definition.label + " must be between " + definition.min + " and " + definition.max + " m." : "Invalid input."
+      };
+      return false;
+    }
+    if (this.parameterLocks[key]) {
+      this.status = { className: "warn", text: "Unlock " + definition.label.toLowerCase() + " before editing." };
+      return false;
+    }
+    this.params[key] = value;
+    this.solve();
+    return true;
+  };
+
+  CantileverModel.prototype.drag = function (handle, target) {
+    var d = this.derived();
+    var direct = null;
+    if (handle === "T") {
+      if (Object.prototype.hasOwnProperty.call(this.lengthLocks, "top")) {
+        this.status = { className: "warn", text: "Top tube length is locked." };
+        return;
+      }
+      this.state.topLength = clamp(target.x, 0.30, 8.00);
+      this.state.xC = Math.min(this.state.xC, this.state.topLength - 0.02);
+      this.state.xE = Math.min(this.state.xE, this.state.topLength - 0.02);
+      direct = { type: "variable", index: 0, target: this.state.topLength };
+    } else if (handle === "C") {
+      if (Object.prototype.hasOwnProperty.call(this.lengthLocks, "strut")) {
+        this.status = { className: "warn", text: "Strut length fixes J1 on the level top tube." };
+        return;
+      }
+      if (target.x > this.state.topLength - 0.02 && !Object.prototype.hasOwnProperty.call(this.lengthLocks, "top")) {
+        this.state.topLength = clamp(target.x + 0.25, 0.30, 8.00);
+      }
+      this.state.xC = clamp(target.x, 0.05, this.state.topLength - 0.02);
+      direct = { type: "variable", index: 1, target: this.state.xC };
+    } else if (handle === "E") {
+      if (target.x > this.state.topLength - 0.02 && !Object.prototype.hasOwnProperty.call(this.lengthLocks, "top")) {
+        this.state.topLength = clamp(target.x + 0.25, 0.30, 8.00);
+      }
+      this.state.xE = clamp(target.x, 0, this.state.topLength - 0.02);
+      direct = { type: "variable", index: 2, target: this.state.xE };
+    } else if (handle === "D") {
+      this.state.tD = projectFraction(target, d.B, d.C);
+      direct = { type: "variable", index: 3, target: this.state.tD };
+    } else if (handle === "R") {
+      var regVector = sub(target, d.D);
+      var desiredPhi = clamp(Math.atan2(regVector.y, regVector.x), -75 * Math.PI / 180, 75 * Math.PI / 180);
+      this.state.phi = desiredPhi;
+      if (!Object.prototype.hasOwnProperty.call(this.lengthLocks, "reg")) {
+        this.state.regLength = clamp(lengthOf(regVector), 0.20, 8.00);
+      }
+      direct = { type: "point", key: "R", target: target, weight: 52 };
+    } else if (handle === "F") {
+      this.state.tF = projectFraction(target, d.D, d.R);
+      direct = { type: "variable", index: 6, target: this.state.tF };
+    } else if (handle === "G") {
+      this.state.tG = projectFraction(target, d.D, d.R);
+      direct = { type: "variable", index: 7, target: this.state.tG };
+    } else if (handle === "H" && this.mode === "pull") {
+      this.state.tH = projectFraction(target, d.B, d.C);
+      direct = { type: "variable", index: 8, target: this.state.tH };
+    }
+    this.state = this.vectorToState(this.clipVector(this.toVector()));
+    this.solve({ direct: direct });
+  };
+
+  var models = {
+    pull: new CantileverModel("pull"),
+    push: new CantileverModel("push")
+  };
+
+  var viewCache = {};
+  var activeDrag = null;
+
+  function computeView(model) {
+    var d = model.derived();
+    var p = model.params;
+    var points = [d.A, d.B, d.C, d.T, d.E, d.D, d.R, d.F, d.G, d.H, d.dropBottom, d.armEnd];
+    var xValues = points.map(function (item) { return item.x; });
+    xValues.push(-0.55, p.walkout + 1.15, d.railRight + 0.40, d.staggerX + 0.45);
+    var yValues = points.map(function (item) { return item.y; });
+    yValues.push(-0.42, d.catenaryY + 0.35, d.contactY);
+    var xMin = Math.min.apply(null, xValues);
+    var xMax = Math.max.apply(null, xValues);
+    var yMin = Math.min.apply(null, yValues);
+    var yMax = Math.max.apply(null, yValues);
+    var worldWidth = Math.max(5.8, xMax - xMin);
+    var worldHeight = Math.max(3.7, yMax - yMin);
+    var scale = Math.min((680 - 36) / worldWidth, (480 - 34) / worldHeight);
+    var usedWidth = (xMax - xMin) * scale;
+    var usedHeight = (yMax - yMin) * scale;
+    return {
+      xMin: xMin,
+      yMin: yMin,
+      xMax: xMax,
+      yMax: yMax,
+      scale: scale,
+      offsetX: 18 + (680 - 36 - usedWidth) / 2,
+      offsetY: 480 - 17 - (480 - 34 - usedHeight) / 2
+    };
+  }
+
+  function screenPoint(worldPoint, view) {
+    return {
+      x: view.offsetX + (worldPoint.x - view.xMin) * view.scale,
+      y: view.offsetY - (worldPoint.y - view.yMin) * view.scale
+    };
+  }
+
+  function worldPointFromEvent(svg, event, view) {
+    var rect = svg.getBoundingClientRect();
+    var svgX = (event.clientX - rect.left) * 680 / rect.width;
+    var svgY = (event.clientY - rect.top) * 480 / rect.height;
+    return {
+      x: view.xMin + (svgX - view.offsetX) / view.scale,
+      y: view.yMin + (view.offsetY - svgY) / view.scale
+    };
+  }
+
+  function svgLine(parts, a, b, className, extra, view) {
+    var sa = screenPoint(a, view);
+    var sb = screenPoint(b, view);
+    parts.push(
+      '<line x1="' + formatNumber(sa.x, 2) + '" y1="' + formatNumber(sa.y, 2) +
+      '" x2="' + formatNumber(sb.x, 2) + '" y2="' + formatNumber(sb.y, 2) +
+      '" class="' + className + '"' + (extra || "") + ' />'
+    );
+  }
+
+  function svgText(parts, p, value, className, view, anchor, dx, dy) {
+    var s = screenPoint(p, view);
+    parts.push(
+      '<text x="' + formatNumber(s.x + (dx || 0), 2) +
+      '" y="' + formatNumber(s.y + (dy || 0), 2) +
+      '" class="' + (className || "") +
+      '" text-anchor="' + (anchor || "start") + '">' + escapeHtml(value) + '</text>'
+    );
+  }
+
+  function svgCircle(parts, p, radius, className, extra, view) {
+    var s = screenPoint(p, view);
+    parts.push(
+      '<circle cx="' + formatNumber(s.x, 2) + '" cy="' + formatNumber(s.y, 2) +
+      '" r="' + radius + '" class="' + className + '"' + (extra || "") + ' />'
+    );
+  }
+
+  function svgSquare(parts, p, size, className, view) {
+    var s = screenPoint(p, view);
+    parts.push(
+      '<rect x="' + formatNumber(s.x - size / 2, 2) +
+      '" y="' + formatNumber(s.y - size / 2, 2) +
+      '" width="' + size + '" height="' + size + '" rx="1.5" class="' + className + '" />'
+    );
+  }
+
+  function drawRail(parts, x, view) {
+    svgLine(parts, point(x - 0.12, 0.02), point(x + 0.12, 0.02), "reference", "", view);
+    svgLine(parts, point(x, 0.02), point(x, -0.11), "reference", "", view);
+    svgLine(parts, point(x - 0.08, -0.11), point(x + 0.08, -0.11), "reference", "", view);
+  }
+
+  function renderDrawing(model) {
+    var svg = document.getElementById(model.mode + "-svg");
+    var d = model.derived();
+    var p = model.params;
+    var view = computeView(model);
+    viewCache[model.mode] = view;
+    var parts = [];
+    var x;
+    var y;
+
+    parts.push('<defs><marker id="arrow-' + model.mode + '" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto-start-reverse"><path d="M0,0 L6,3 L0,6 Z" fill="#71838e"/></marker></defs>');
+
+    for (x = Math.ceil(view.xMin * 2) / 2; x <= view.xMax + 0.001; x += 0.5) {
+      svgLine(parts, point(x, view.yMin), point(x, view.yMax), Math.abs(x - Math.round(x)) < 0.001 ? "grid-major" : "grid", "", view);
+      if (x >= 0 && Math.abs(x - Math.round(x)) < 0.001) {
+        svgText(parts, point(x, -0.18), formatNumber(x, 0) + " m", "small-label", view, "middle", 0, 15);
+      }
+    }
+    for (y = Math.ceil(view.yMin * 2) / 2; y <= view.yMax + 0.001; y += 0.5) {
+      svgLine(parts, point(view.xMin, y), point(view.xMax, y), Math.abs(y - Math.round(y)) < 0.001 ? "grid-major" : "grid", "", view);
+    }
+
+    svgLine(parts, point(0, -0.14), point(0, TOP_Y + 0.48), "mast", "", view);
+    svgText(parts, point(0, TOP_Y + 0.48), "MAST", "small-label", view, "middle", 0, -5);
+    svgLine(parts, point(view.xMin, -0.14), point(view.xMax, -0.14), "reference", "", view);
+    svgText(parts, point(view.xMin + 0.08, -0.14), "GROUND PLANE", "small-label", view, "start", 0, -6);
+
+    drawRail(parts, d.railLeft, view);
+    drawRail(parts, d.railRight, view);
+    svgText(parts, point(p.walkout, -0.11), "1.435 m gauge", "small-label", view, "middle", 0, 27);
+
+    svgLine(parts, point(p.walkout, -0.12), point(p.walkout, d.catenaryY + 0.18), "track-centre", "", view);
+    svgText(parts, point(p.walkout, d.catenaryY + 0.18), "TRACK CL", "small-label", view, "middle", 0, -4);
+    svgLine(parts, point(d.staggerX, -0.12), point(d.staggerX, d.catenaryY + 0.08), "stagger", "", view);
+    svgText(
+      parts,
+      point(d.staggerX, 0.18),
+      (model.mode === "pull" ? "−230 mm" : "+230 mm") + " stagger",
+      "small-label",
+      view,
+      model.mode === "pull" ? "end" : "start",
+      model.mode === "pull" ? -5 : 5,
+      0
+    );
+
+    svgLine(parts, point(Math.max(0, p.walkout - 1.25), d.contactY), point(p.walkout + 1.05, d.contactY), "target-level", "", view);
+    svgText(parts, point(p.walkout + 1.05, d.contactY), "CONTACT TARGET", "small-label", view, "end", 0, -5);
+    svgLine(parts, point(d.staggerX - 0.18, d.catenaryY), point(d.staggerX + 0.18, d.catenaryY), "reference", "", view);
+    svgCircle(parts, point(d.staggerX, d.catenaryY), 4, "fixed-point", "", view);
+    svgText(parts, point(d.staggerX, d.catenaryY), "CATENARY CLAMP", "small-label", view, "middle", 0, -11);
+    svgLine(parts, point(d.staggerX, TOP_Y), point(d.staggerX, d.catenaryY), "dimension", "", view);
+    svgText(parts, point(d.staggerX, TOP_Y + CATENARY_OFFSET / 2), "100 mm", "small-label", view, "start", 6, 3);
+
+    var dimX = d.staggerX + (model.mode === "pull" ? 0.28 : -0.28);
+    var dimExtra = ' marker-start="url(#arrow-' + model.mode + ')" marker-end="url(#arrow-' + model.mode + ')"';
+    svgLine(parts, point(dimX, d.contactY), point(dimX, d.catenaryY), "dimension", dimExtra, view);
+    svgText(
+      parts,
+      point(dimX, (d.contactY + d.catenaryY) / 2),
+      "SH " + formatNumber(p.systemHeight, 3) + " m",
+      "small-label",
+      view,
+      model.mode === "pull" ? "start" : "end",
+      model.mode === "pull" ? 7 : -7,
+      3
+    );
+
+    var bracketDimX = -0.16;
+    svgLine(parts, point(bracketDimX, d.B.y), point(bracketDimX, d.A.y), "dimension", dimExtra, view);
+    svgText(parts, point(bracketDimX, (d.B.y + d.A.y) / 2), formatNumber(p.bracketSep, 3) + " m", "small-label", view, "end", -6, 3);
+
+    svgLine(parts, d.A, d.T, "tube top", "", view);
+    svgLine(parts, d.B, d.C, "tube strut", "", view);
+    svgLine(parts, d.E, d.D, "tube brace1", "", view);
+    svgLine(parts, d.D, d.R, "tube reg", "", view);
+    svgLine(parts, d.H, d.F, "tube brace2", "", view);
+    svgLine(parts, d.G, d.dropBottom, "assembly", "", view);
+    svgLine(parts, d.dropBottom, d.armEnd, "assembly", "", view);
+
+    svgText(parts, midpoint(d.A, d.T), "TOP TUBE", "tube-label", view, "middle", 0, -9);
+    svgText(parts, midpoint(d.B, d.C), "STRUT", "tube-label", view, "middle", 0, 15);
+    svgText(parts, midpoint(d.E, d.D), "BRACE 1", "tube-label", view, "middle", -7, 0);
+    svgText(parts, midpoint(d.D, d.R), "REG TUBE", "tube-label", view, "middle", 0, -9);
+    svgText(parts, midpoint(d.H, d.F), "BRACE 2", "tube-label", view, "middle", 8, 0);
+    svgText(parts, midpoint(d.dropBottom, d.armEnd), "REG ARM", "tube-label", view, "middle", 0, 14);
+
+    svgSquare(parts, d.A, 10, "fixed-point", view);
+    svgSquare(parts, d.B, 10, "fixed-point", view);
+    svgText(parts, d.A, "FIXED", "small-label", view, "start", 8, -7);
+    svgText(parts, d.B, "STRUT PIVOT", "small-label", view, "start", 8, 14);
+
+    svgCircle(parts, d.T, 7, "handle end-handle", ' data-handle="T" tabindex="0" role="button" aria-label="Drag top tube end"', view);
+    svgCircle(parts, d.C, 7, "handle", ' data-handle="C" tabindex="0" role="button" aria-label="Drag top and strut joint"', view);
+    svgCircle(parts, d.E, 7, "handle", ' data-handle="E" tabindex="0" role="button" aria-label="Drag brace 1 along top tube"', view);
+    svgCircle(parts, d.D, 7, "handle", ' data-handle="D" tabindex="0" role="button" aria-label="Drag brace and registration joint along strut"', view);
+    svgCircle(parts, d.R, 7, "handle end-handle", ' data-handle="R" tabindex="0" role="button" aria-label="Drag registration tube end"', view);
+    svgCircle(parts, d.F, 7, "handle", ' data-handle="F" tabindex="0" role="button" aria-label="Drag brace 2 along registration tube"', view);
+    svgCircle(parts, d.G, 7, "handle assembly-handle", ' data-handle="G" tabindex="0" role="button" aria-label="Slide registration assembly along registration tube"', view);
+    if (model.mode === "pull") {
+      svgCircle(parts, d.H, 7, "handle", ' data-handle="H" tabindex="0" role="button" aria-label="Drag brace 2 along strut tube"', view);
+    }
+
+    svgText(parts, d.C, model.mode === "push" ? "J1 / J4" : "J1", "joint-label", view, "middle", 0, -12);
+    svgText(parts, d.E, "J2", "joint-label", view, "middle", 0, -12);
+    svgText(parts, d.D, "J3", "joint-label", view, "middle", -11, 13);
+    svgText(parts, d.F, "J5", "joint-label", view, "middle", 0, 16);
+    if (model.mode === "pull") svgText(parts, d.H, "J4", "joint-label", view, "middle", 10, -4);
+    svgText(parts, d.G, "SLIDE · FIXED ORIENTATION", "small-label", view, "middle", 0, -12);
+
+    var angleDeg = model.angleValue("topReg") * 180 / Math.PI;
+    var angleAbs = Math.abs(angleDeg);
+    var metricClass = angleAbs <= 0.5 ? "metric-ok" : (angleAbs <= 2 ? "metric-warn" : "metric-bad");
+    var xError = d.armEnd.x - d.staggerX;
+    var yError = d.armEnd.y - d.contactY;
+    parts.push('<rect x="17" y="16" width="247" height="55" rx="7" class="metric-bg"/>');
+    parts.push('<text x="29" y="36" class="metric-title">REGISTRATION vs TOP <tspan class="' + metricClass + '">' + (angleDeg > 0 ? "+" : "") + formatNumber(angleDeg, 2) + '°</tspan></text>');
+    parts.push('<text x="29" y="55">Arm-end error · Δx ' + (xError > 0 ? "+" : "") + formatNumber(xError, 3) + ' m · Δlevel ' + (yError > 0 ? "+" : "") + formatNumber(yError, 3) + ' m</text>');
+
+    svg.innerHTML = parts.join("");
+  }
+
+  function lockButtonHtml(mode, kind, key, locked, label) {
+    return '<button class="lock-button' + (locked ? " locked" : "") +
+      '" data-action="toggle-lock" data-mode="' + mode + '" data-kind="' + kind +
+      '" data-key="' + key + '" aria-label="' + (locked ? "Unlock " : "Lock ") +
+      escapeHtml(label) + '" title="' + (locked ? "Unlock value" : "Lock current value") +
+      '">' + (locked ? "🔒" : "🔓") + '</button>';
+  }
+
+  function renderValueTable(model) {
+    var container = document.getElementById(model.mode + "-table");
+    var rows = model.activeTab === "lengths" ? LENGTH_ROWS : ANGLE_ROWS;
+    var kind = model.activeTab === "lengths" ? "length" : "angle";
+    var html = ['<table class="value-table"><thead><tr><th>Parameter</th><th>Value</th><th>Unit</th><th></th></tr></thead><tbody>'];
+
+    rows.forEach(function (row) {
+      var current;
+      var locked;
+      var target;
+      var disabled = false;
+      var measuredNote = "";
+      if (kind === "length") {
+        current = model.lengthValue(row.key);
+        if (row.parameter) {
+          locked = !!model.parameterLocks[row.parameter];
+          target = current;
+          disabled = locked;
+        } else {
+          locked = Object.prototype.hasOwnProperty.call(model.lengthLocks, row.key);
+          target = locked ? model.lengthLocks[row.key] : current;
+          if (locked && Math.abs(target - current) > 0.0005) {
+            measuredNote = '<span class="measured">measured ' + formatNumber(current, 3) + '</span>';
+          }
+        }
+      } else {
+        current = model.angleValue(row.key) * 180 / Math.PI;
+        locked = Object.prototype.hasOwnProperty.call(model.angleLocks, row.key);
+        target = (locked ? model.angleLocks[row.key] * 180 / Math.PI : current);
+        var angleError = Math.abs(wrapAngle((target - current) * Math.PI / 180) * 180 / Math.PI);
+        if (locked && angleError > 0.02) {
+          measuredNote = '<span class="measured">measured ' + formatNumber(current, 2) + '°</span>';
+        }
+      }
+
+      var lockKind = row.parameter ? "parameter" : kind;
+      var lockKey = row.parameter || row.key;
+      html.push(
+        '<tr><td class="name">' + escapeHtml(row.label) + '</td>' +
+        '<td class="value"><input class="value-input" type="number" step="' + (kind === "length" ? "0.001" : "0.01") +
+        '" value="' + formatNumber(target, kind === "length" ? 3 : 2) +
+        '" data-input-kind="' + kind + '" data-mode="' + model.mode + '" data-key="' + row.key + '"' +
+        (disabled ? " disabled" : "") + ' aria-label="' + escapeHtml(row.label) + '">' + measuredNote + '</td>' +
+        '<td class="unit">' + row.unit + '</td><td class="lock-cell">' +
+        lockButtonHtml(model.mode, lockKind, lockKey, locked, row.label) + '</td></tr>'
+      );
+    });
+    html.push("</tbody></table>");
+    container.innerHTML = html.join("");
+
+    var card = document.getElementById(model.mode + "-card");
+    card.querySelectorAll(".tab").forEach(function (tab) {
+      tab.classList.toggle("active", tab.getAttribute("data-tab") === model.activeTab);
+    });
+  }
+
+  function renderParameters(model) {
+    var container = document.getElementById(model.mode + "-parameters");
+    var html = [];
+    PARAM_ROWS.forEach(function (row) {
+      var locked = !!model.parameterLocks[row.key];
+      html.push(
+        '<div class="parameter-row"><label class="parameter-label" for="' + model.mode + "-param-" + row.key + '">' +
+        escapeHtml(row.label) + '</label><div class="parameter-input-wrap">' +
+        '<input class="parameter-input" id="' + model.mode + "-param-" + row.key +
+        '" type="number" step="0.001" min="' + row.min + '" max="' + row.max +
+        '" value="' + formatNumber(model.params[row.key], 3) +
+        '" data-input-kind="parameter" data-mode="' + model.mode + '" data-key="' + row.key + '"' +
+        (locked ? " disabled" : "") + '><span class="parameter-unit">' + row.unit + '</span></div>' +
+        lockButtonHtml(model.mode, "parameter", row.key, locked, row.label) + '</div>'
+      );
+    });
+    container.innerHTML = html.join("");
+  }
+
+  function renderStatus(model) {
+    var element = document.getElementById(model.mode + "-status");
+    element.className = "status" + (model.status.className ? " " + model.status.className : "");
+    element.textContent = model.status.text;
+  }
+
+  function renderModel(model) {
+    renderDrawing(model);
+    renderValueTable(model);
+    renderParameters(model);
+    renderStatus(model);
+  }
+
+  function renderAll() {
+    renderModel(models.pull);
+    renderModel(models.push);
+  }
+
+  function applyInput(input) {
+    var model = models[input.getAttribute("data-mode")];
+    var kind = input.getAttribute("data-input-kind");
+    var key = input.getAttribute("data-key");
+    var value = Number(input.value);
+    if (kind === "length") model.setLength(key, value);
+    else if (kind === "angle") model.setAngle(key, value);
+    else if (kind === "parameter") model.setParameter(key, value);
+    renderModel(model);
+  }
+
+  document.addEventListener("click", function (event) {
+    var control = event.target.closest("[data-action]");
+    if (!control) return;
+    var action = control.getAttribute("data-action");
+    var mode = control.getAttribute("data-mode");
+    var model = models[mode];
+    if (!model) return;
+
+    if (action === "solve") {
+      model.solve();
+    } else if (action === "unlock-all") {
+      model.unlockAll();
+    } else if (action === "reset") {
+      model.reset();
+    } else if (action === "tab") {
+      model.activeTab = control.getAttribute("data-tab");
+    } else if (action === "toggle-lock") {
+      var kind = control.getAttribute("data-kind");
+      var key = control.getAttribute("data-key");
+      if (kind === "length") model.toggleLengthLock(key);
+      else if (kind === "angle") model.toggleAngleLock(key);
+      else if (kind === "parameter") model.toggleParameterLock(key);
+    }
+    renderModel(model);
+  });
+
+  document.addEventListener("change", function (event) {
+    if (event.target.matches("[data-input-kind]")) applyInput(event.target);
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.target.matches("[data-input-kind]") && event.key === "Enter") {
+      event.preventDefault();
+      applyInput(event.target);
+      event.target.blur();
+      return;
+    }
+    var handle = event.target.closest(".handle");
+    if (!handle || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    var svg = handle.closest("svg");
+    var mode = svg.id.indexOf("pull") === 0 ? "pull" : "push";
+    var model = models[mode];
+    var handleKey = handle.getAttribute("data-handle");
+    var d = model.derived();
+    var current = d[handleKey];
+    var increment = event.shiftKey ? 0.10 : 0.01;
+    var target = point(current.x, current.y);
+    if (event.key === "ArrowLeft") target.x -= increment;
+    if (event.key === "ArrowRight") target.x += increment;
+    if (event.key === "ArrowUp") target.y += increment;
+    if (event.key === "ArrowDown") target.y -= increment;
+    model.drag(handleKey, target);
+    renderModel(model);
+    var replacement = document.querySelector("#" + mode + "-svg [data-handle='" + handleKey + "']");
+    if (replacement) replacement.focus();
+  });
+
+  document.querySelectorAll(".drawing").forEach(function (svg) {
+    svg.addEventListener("pointerdown", function (event) {
+      var handle = event.target.closest(".handle");
+      if (!handle) return;
+      event.preventDefault();
+      var mode = svg.id.indexOf("pull") === 0 ? "pull" : "push";
+      activeDrag = {
+        mode: mode,
+        handle: handle.getAttribute("data-handle"),
+        svg: svg,
+        pointerId: event.pointerId,
+        view: clone(viewCache[mode])
+      };
+      svg.setPointerCapture(event.pointerId);
+    });
+
+    svg.addEventListener("pointermove", function (event) {
+      if (!activeDrag || activeDrag.svg !== svg || activeDrag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      var target = worldPointFromEvent(svg, event, activeDrag.view);
+      models[activeDrag.mode].drag(activeDrag.handle, target);
+      renderModel(models[activeDrag.mode]);
+    });
+
+    function finishDrag(event) {
+      if (!activeDrag || activeDrag.svg !== svg || activeDrag.pointerId !== event.pointerId) return;
+      if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+      activeDrag = null;
+    }
+
+    svg.addEventListener("pointerup", finishDrag);
+    svg.addEventListener("pointercancel", finishDrag);
+  });
+
+  window.addEventListener("resize", function () {
+    renderAll();
+  });
+
+  renderAll();
+  </script>
+</body>
+</html>
